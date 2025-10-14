@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import express from "express";
 import cors from "cors";
-import { randomUUID } from "crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
@@ -249,8 +248,8 @@ app.use(cors({
 }));
 // Streamable HTTP Transport はプロセス内で単一インスタンスを共有（セッション維持のため）
 const httpTransport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => randomUUID(),
-    enableDnsRebindingProtection: true,
+    sessionIdGenerator: undefined,
+    // enableDnsRebindingProtection: true,
     enableJsonResponse: true,
 });
 // サーバ起動時に一度だけ接続
@@ -263,9 +262,24 @@ app.post("/mcp", async (req, res) => {
 app.get("/mcp", async (req, res) => {
     await httpTransport.handleRequest(req, res);
 });
+app.delete("/mcp", async (req, res) => {
+    await httpTransport.handleRequest(req, res);
+});
+// --- 互換: 一部ゲートウェイは /mcp/rpc を利用するため、同一ハンドラにエイリアスを提供 ---
+app.post("/mcp/rpc", async (req, res) => {
+    await httpTransport.handleRequest(req, res, req.body);
+});
+app.get("/mcp/rpc", async (req, res) => {
+    await httpTransport.handleRequest(req, res);
+});
+app.delete("/mcp/rpc", async (req, res) => {
+    await httpTransport.handleRequest(req, res);
+});
+// --- 互換: /mcp/health でもヘルスを返す ---
+app.get("/mcp/health", (_req, res) => res.status(200).json({ ok: true }));
 // ヘルスチェック
 app.get("/health", (_req, res) => res.status(200).json({ ok: true }));
-const port = parseInt(process.env.PORT || "3000", 10);
+const port = parseInt(process.env.PORT || "8080", 10);
 app
     .listen(port, () => {
     console.log(`MCP (Streamable HTTP) listening on http://localhost:${port}/mcp`);

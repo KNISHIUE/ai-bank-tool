@@ -348,8 +348,8 @@ app.use(
 
 // Streamable HTTP Transport はプロセス内で単一インスタンスを共有（セッション維持のため）
 const httpTransport = new StreamableHTTPServerTransport({
-  sessionIdGenerator: () => randomUUID(),
-  enableDnsRebindingProtection: true,
+  sessionIdGenerator: undefined,
+  // enableDnsRebindingProtection: true,
   enableJsonResponse: true,
 });
 
@@ -365,11 +365,28 @@ app.post("/mcp", async (req: express.Request, res: express.Response) => {
 app.get("/mcp", async (req: express.Request, res: express.Response) => {
   await httpTransport.handleRequest(req, res);
 });
+app.delete("/mcp", async (req: express.Request, res: express.Response) => {
+  await httpTransport.handleRequest(req, res);
+});
+
+// --- 互換: 一部ゲートウェイは /mcp/rpc を利用するため、同一ハンドラにエイリアスを提供 ---
+app.post("/mcp/rpc", async (req: express.Request, res: express.Response) => {
+  await httpTransport.handleRequest(req, res, req.body);
+});
+app.get("/mcp/rpc", async (req: express.Request, res: express.Response) => {
+  await httpTransport.handleRequest(req, res);
+});
+app.delete("/mcp/rpc", async (req: express.Request, res: express.Response) => {
+  await httpTransport.handleRequest(req, res);
+});
+
+// --- 互換: /mcp/health でもヘルスを返す ---
+app.get("/mcp/health", (_req: express.Request, res: express.Response) => res.status(200).json({ ok: true }));
 
 // ヘルスチェック
 app.get("/health", (_req: express.Request, res: express.Response) => res.status(200).json({ ok: true }));
 
-const port = parseInt(process.env.PORT || "3000", 10);
+const port = parseInt(process.env.PORT || "8080", 10);
 app
   .listen(port, () => {
     console.log(`MCP (Streamable HTTP) listening on http://localhost:${port}/mcp`);
